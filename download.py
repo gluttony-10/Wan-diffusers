@@ -1,15 +1,29 @@
 from huggingface_hub import snapshot_download, login
 import os
 
-# 1. 检查是否已登录
-try:
-    # 尝试无需登录的下载（如果已缓存凭据）
+model_name="Wan-AI/Wan2.2-I2V-A14B-Diffusers"
+folder_name = model_name.split('/')[-1]
+
+def download_model(model_name):
     snapshot_download(
-        repo_id="Wan-AI/Wan2.2-TI2V-5B-Diffusers",
-        local_dir="models/Wan2.2-TI2V-5B-Diffusers",
+        repo_id=model_name,
+        local_dir=f"models/{folder_name}",
+        allow_patterns=[
+            "assets/*",
+            "examples/*",
+            "text_encoder/*",
+            "tokenizer/*",
+            "transformer/config.json"
+            "transformer_2/config.json"
+            "vae/*",
+            "model_index.json",
+        ],
         resume_download=True
     )
     print("下载成功！")
+
+try:
+    download_model(model_name)
     
 except Exception as e:
     if "401" in str(e):
@@ -19,12 +33,7 @@ except Exception as e:
         
         # 登录并重试
         login(token=token)
-        snapshot_download(
-            repo_id="Wan-AI/Wan2.2-TI2V-5B-Diffusers",
-            local_dir="models/Wan2.2-TI2V-5B-Diffusers",
-            resume_download=True
-        )
-        print("下载成功！")
+        download_model(model_name)
         
     else:
         print(f"下载失败: {str(e)}")

@@ -6,7 +6,6 @@ from transformers import CLIPVisionModel, UMT5EncoderModel
 from diffusers.schedulers.scheduling_unipc_multistep import UniPCMultistepScheduler
 import argparse
 import torch.nn.functional as F
-from sageattention import sageattn
 from diffusers.hooks import apply_group_offloading
 from typing import Callable, List, Optional, Tuple, Union
 from diffusers.models.attention_processor import Attention
@@ -23,7 +22,7 @@ parser.add_argument("--server_port", type=int, default=7891, help="使用端口"
 parser.add_argument("--share", action="store_true", help="是否启用gradio共享")
 parser.add_argument("--mcp_server", action="store_true", help="是否启用mcp服务")
 parser.add_argument('--vram', type=str, default='low', choices=['low', 'high'], help='显存模式')
-parser.add_argument('--lora', type=str, default=None, help='lora模型路径')
+parser.add_argument('--lora', type=str, default="None", help='lora模型路径')
 args = parser.parse_args()
 
 print(" 启动中，请耐心等待 bilibili@十字鱼 https://space.bilibili.com/893892")
@@ -80,12 +79,10 @@ def generate(
             pipe.load_lora_weights(args.lora)
             print(f"加载{args.lora}")
         if args.vram=="high":
-            #pipe.vae.enable_tiling()
             pipe.vae.enable_slicing()
             pipe.enable_model_cpu_offload()
         else:
-            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
-            #apply_group_offloading(pipe.image_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
+            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="block_level", num_blocks_per_group=2)
             apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
         output = pipe(
@@ -100,21 +97,34 @@ def generate(
         ).frames[0]
     else:
         model_id = "models/Wan2.2-I2V-A14B-Diffusers"
+        transformer = WanTransformer3DModel.from_single_file(
+            f"{model_id}/wan2.2_i2v_high_noise_14B_Q8_0.gguf",
+            config=f"{model_id}/transformer/config.json",
+            quantization_config=GGUFQuantizationConfig(compute_dtype=dtype),
+            torch_dtype=dtype,
+        )
+        transformer_2 = WanTransformer3DModel.from_single_file(
+            f"{model_id}/wan2.2_i2v_low_noise_14B_Q8_0.gguf",
+            config=f"{model_id}/transformer_2/config.json",
+            quantization_config=GGUFQuantizationConfig(compute_dtype=dtype),
+            torch_dtype=dtype,
+        )
         pipe = WanImageToVideoPipeline.from_pretrained(
             model_id, 
+            transformer=transformer,
+            transformer_2=transformer_2,
             torch_dtype=dtype
         )
         if args.lora!="None":
             pipe.load_lora_weights(args.lora)
             print(f"加载{args.lora}")
         if args.vram=="high":
-            #pipe.vae.enable_tiling()
             pipe.vae.enable_slicing()
             pipe.enable_model_cpu_offload()
         else:
-            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
-            #apply_group_offloading(pipe.image_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
+            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="block_level", num_blocks_per_group=2)
             apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
+            apply_group_offloading(pipe.transformer_2, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
         image = load_image(image_input)
         image = image.resize((width, height))
