@@ -1,0 +1,12 @@
+diffusers
+transformers
+gguf
+gradio
+numpy==1.26.4
+huggingface_hub
+accelerate
+ftfy
+peft
+imageio
+imageio-ffmpeg
+opencv-python
