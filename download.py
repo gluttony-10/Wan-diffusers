@@ -11,10 +11,11 @@ def download_model(model_name):
         allow_patterns=[
             "assets/*",
             "examples/*",
+            "scheduler/*",
             "text_encoder/*",
             "tokenizer/*",
-            "transformer/config.json"
-            "transformer_2/config.json"
+            "transformer/config.json",
+            "transformer_2/config.json",
             "vae/*",
             "model_index.json",
         ],

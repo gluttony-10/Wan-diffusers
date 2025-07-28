@@ -82,7 +82,7 @@ def generate(
             pipe.vae.enable_slicing()
             pipe.enable_model_cpu_offload()
         else:
-            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="block_level", num_blocks_per_group=2)
+            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
         output = pipe(
@@ -95,16 +95,18 @@ def generate(
             num_inference_steps=steps,
             generator=torch.Generator().manual_seed(seed)
         ).frames[0]
+        export_to_video(output, f"outputs/{timestamp}.mp4", fps=24)
+        return f"outputs/{timestamp}.mp4", seed
     else:
         model_id = "models/Wan2.2-I2V-A14B-Diffusers"
         transformer = WanTransformer3DModel.from_single_file(
-            f"{model_id}/wan2.2_i2v_high_noise_14B_Q8_0.gguf",
+            f"{model_id}/wan2.2_i2v_high_noise_14B_Q2_K.gguf",
             config=f"{model_id}/transformer/config.json",
             quantization_config=GGUFQuantizationConfig(compute_dtype=dtype),
             torch_dtype=dtype,
         )
         transformer_2 = WanTransformer3DModel.from_single_file(
-            f"{model_id}/wan2.2_i2v_low_noise_14B_Q8_0.gguf",
+            f"{model_id}/wan2.2_i2v_low_noise_14B_Q2_K.gguf",
             config=f"{model_id}/transformer_2/config.json",
             quantization_config=GGUFQuantizationConfig(compute_dtype=dtype),
             torch_dtype=dtype,
@@ -122,7 +124,7 @@ def generate(
             pipe.vae.enable_slicing()
             pipe.enable_model_cpu_offload()
         else:
-            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="block_level", num_blocks_per_group=2)
+            apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             apply_group_offloading(pipe.transformer_2, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
@@ -134,13 +136,13 @@ def generate(
             negative_prompt=negative_prompt, 
             height=height, 
             width=width, 
-            num_frames=nf*24+1, 
+            num_frames=nf*16+1, 
             guidance_scale=3.5,
             num_inference_steps=steps,
             generator=torch.Generator().manual_seed(seed)
         ).frames[0]
-    export_to_video(output, f"outputs/{timestamp}.mp4", fps=24)
-    return f"outputs/{timestamp}.mp4", seed
+        export_to_video(output, f"outputs/{timestamp}.mp4", fps=16)
+        return f"outputs/{timestamp}.mp4", seed
 
 with gr.Blocks(theme=gr.themes.Base()) as demo:
     gr.Markdown("""
@@ -161,7 +163,7 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
         with gr.Column():
             image_input = gr.Image(label="输入图像", type="filepath", height=480)
             prompt = gr.Textbox(label="提示词（不超过200字）", value="Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.")
-            negative_prompt = gr.Textbox(label="负面提示词", value="色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走")
+            negative_prompt = gr.Textbox(label="负面提示词", value="")
             steps = gr.Slider(label="采样步数", minimum=1, maximum=100, step=1, value=20)
             nf = gr.Slider(label="生成时长（秒）", minimum=3, maximum=10, step=1, value=5)
             height = gr.Slider(label="高度", minimum=256, maximum=2560, step=32, value=704)
