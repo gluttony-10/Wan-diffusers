@@ -5,6 +5,7 @@
 一键包详见 [bilibili@十字鱼](https://space.bilibili.com/893892)
 
 ## 更新内容
+250729 添加A14B_i2v模型
 250728 添加5B模型
 ## 安装依赖
 ```

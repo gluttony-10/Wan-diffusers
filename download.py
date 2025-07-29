@@ -1,23 +1,15 @@
 from huggingface_hub import snapshot_download, login
 import os
 
-model_name="Wan-AI/Wan2.2-I2V-A14B-Diffusers"
+model_name="Gluttony10/Wan-diffusers"
 folder_name = model_name.split('/')[-1]
 
 def download_model(model_name):
     snapshot_download(
         repo_id=model_name,
-        local_dir=f"models/{folder_name}",
+        local_dir="models",
         allow_patterns=[
-            "assets/*",
-            "examples/*",
-            "scheduler/*",
-            "text_encoder/*",
-            "tokenizer/*",
-            "transformer/config.json",
-            "transformer_2/config.json",
-            "vae/*",
-            "model_index.json",
+            "*",
         ],
         resume_download=True
     )
