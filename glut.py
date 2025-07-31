@@ -110,7 +110,7 @@ def generate(
                 apply_group_offloading(pipe.transformer_2, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             if args.afba:
-                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=0.12))
+                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=0.1))
                 print("开启第一块缓存")
         output = pipe(
             prompt=prompt, 
@@ -159,7 +159,7 @@ def generate(
                 apply_group_offloading(pipe.transformer_2, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             if args.afba:
-                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=0.12))
+                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=0.1))
                 print("开启第一块缓存")
         image = load_image(image_input)
         image = image.resize((width, height))
@@ -224,7 +224,7 @@ def generate_5b(
                 apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             if args.afba:
-                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=0.12))
+                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=0.1))
                 print("开启第一块缓存")
         output = pipe(
             prompt=prompt, 
@@ -267,7 +267,7 @@ def generate_5b(
                 apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
             if args.afba:
-                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=0.12))
+                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=0.1))
                 print("开启第一块缓存")
             image_processor = ModularPipeline.from_pretrained("models/WanImageProcessor", trust_remote_code=True)
         image = image_processor(image=image_input, max_area=height*width, output="processed_image")
