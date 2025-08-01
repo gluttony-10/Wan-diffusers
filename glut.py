@@ -27,7 +27,7 @@ parser.add_argument("--share", action="store_true", help="是否启用gradio共�
 parser.add_argument("--mcp_server", action="store_true", help="是否启用mcp服务")
 parser.add_argument('--vram', type=str, default='low', choices=['low', 'high'], help='显存模式')
 parser.add_argument('--lora', type=str, default="None", help='lora模型路径')
-parser.add_argument("--afba", action="store_true", help="是否开启第一块缓存")
+parser.add_argument("--afba", type=float, default=0.1, help="第一块缓存加速，0就是不启用")
 args = parser.parse_args()
 
 print(" 启动中，请耐心等待 bilibili@十字鱼 https://space.bilibili.com/893892")
@@ -41,7 +41,7 @@ if torch.cuda.is_available():
     print(f'\033[32m内存大小：{mem.total/1073741824:.2f}GB\033[0m')
     if torch.cuda.get_device_capability()[0] >= 8:
         print(f'\033[32m支持BF16\033[0m')
-        dtype = torch.bfloat16
+        dtype = torch.float16
     else:
         print(f'\033[32m不支持BF16，仅支持FP16\033[0m')
         dtype = torch.float16
@@ -67,6 +67,7 @@ def generate(
     height, 
     width, 
     seed_param,
+    last_image,
 ):
     global pipe, model
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -109,8 +110,8 @@ def generate(
                 apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.transformer_2, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
-            if args.afba:
-                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=0.1))
+            if args.afba>0:
+                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=args.afba))
                 print("开启第一块缓存")
         output = pipe(
             prompt=prompt, 
@@ -158,11 +159,14 @@ def generate(
                 apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.transformer_2, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
-            if args.afba:
-                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=0.1))
+            if args.afba>0:
+                pipe.transformer_2.enable_cache(FirstBlockCacheConfig(threshold=args.afba))
                 print("开启第一块缓存")
         image = load_image(image_input)
         image = image.resize((width, height))
+        if last_image is not None:
+            last_image = load_image(last_image)
+            last_image = last_image.resize((width, height))
         output = pipe(
             image=image, 
             prompt=prompt, 
@@ -172,7 +176,8 @@ def generate(
             num_frames=nf*16+1, 
             guidance_scale=3.5,
             num_inference_steps=steps,
-            generator=torch.Generator().manual_seed(seed)
+            generator=torch.Generator().manual_seed(seed),
+            last_image=last_image if last_image is not None else None,
         ).frames[0]
         export_to_video(output, f"outputs/{timestamp}.mp4", fps=16)
         return f"outputs/{timestamp}.mp4", seed
@@ -187,6 +192,7 @@ def generate_5b(
     height, 
     width, 
     seed_param,
+    last_image,
 ):
     global pipe, model
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -223,8 +229,8 @@ def generate_5b(
                 apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
-            if args.afba:
-                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=0.1))
+            if args.afba>0:
+                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=args.afba))
                 print("开启第一块缓存")
         output = pipe(
             prompt=prompt, 
@@ -240,7 +246,7 @@ def generate_5b(
         return f"outputs/{timestamp}.mp4", seed
     else:
         if pipe==None or model!="5b_i2v":
-            model!="5b_i2v"
+            model="5b_i2v"
             transformer = WanTransformer3DModel.from_single_file(
                 f"{model_id}/Wan2.2-TI2V-5B-Q8_0.gguf",
                 config=f"{model_id}/transformer/config.json",
@@ -258,7 +264,7 @@ def generate_5b(
                 text_encoder=text_encoder,
                 torch_dtype=dtype
             )
-            pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config, flow_shift=3.0)
+            #pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config, flow_shift=3.0)
             if args.vram=="high":
                 pipe.vae.enable_slicing()
                 pipe.enable_model_cpu_offload()
@@ -266,11 +272,14 @@ def generate_5b(
                 apply_group_offloading(pipe.text_encoder, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.transformer, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
                 apply_group_offloading(pipe.vae, onload_device=onload_device, offload_device=offload_device, offload_type="leaf_level")
-            if args.afba:
-                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=0.1))
+            if args.afba>0:
+                pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=args.afba))
                 print("开启第一块缓存")
-            image_processor = ModularPipeline.from_pretrained("models/WanImageProcessor", trust_remote_code=True)
-        image = image_processor(image=image_input, max_area=height*width, output="processed_image")
+        image = load_image(image_input)
+        image = image.resize((width, height))
+        if last_image is not None:
+            last_image = load_image(last_image)
+            last_image = last_image.resize((width, height))
         output = pipe(
             image=image, 
             prompt=prompt, 
@@ -280,7 +289,8 @@ def generate_5b(
             num_frames=nf*24+1, 
             guidance_scale=5.0,
             num_inference_steps=steps,
-            generator=torch.Generator().manual_seed(seed)
+            generator=torch.Generator().manual_seed(seed),
+            last_image=last_image if last_image is not None else None,
         ).frames[0]
         export_to_video(output, f"outputs/{timestamp}.mp4", fps=24)
         return f"outputs/{timestamp}.mp4", seed
@@ -304,7 +314,9 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
     with gr.TabItem("Wan2.2 A14B"):
         with gr.Row():
             with gr.Column():
-                image_input = gr.Image(label="输入图像（上传图像是i2v模型，不上传图像是t2v模型）", type="filepath", height=480)
+                image_input = gr.Image(label="输入图像（上传图像是i2v模型，不上传图像是t2v模型）", type="filepath", height=400)
+                with gr.Accordion("首尾帧", open=False):
+                    last_image = gr.Image(label="首尾帧中的尾帧", type="filepath", height=400)
                 prompt = gr.Textbox(label="提示词（不超过200字）", value="Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.")
                 negative_prompt = gr.Textbox(label="负面提示词", value="")
                 steps = gr.Slider(label="采样步数", minimum=1, maximum=100, step=1, value=12)
@@ -319,7 +331,9 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
     with gr.TabItem("Wan2.2 5B"):
         with gr.Row():
             with gr.Column():
-                image_input_5b = gr.Image(label="输入图像（上传图像是i2v模式，不上传图像是t2v模式）", type="filepath", height=480)
+                image_input_5b = gr.Image(label="输入图像（上传图像是i2v模式，不上传图像是t2v模式）", type="filepath", height=400)
+                with gr.Accordion("首尾帧", open=False):
+                    last_image_5b = gr.Image(label="首尾帧中的尾帧", type="filepath", height=400)
                 prompt_5b = gr.Textbox(label="提示词（不超过200字）", value="Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.")
                 negative_prompt_5b = gr.Textbox(label="负面提示词", value="")
                 steps_5b = gr.Slider(label="采样步数", minimum=1, maximum=100, step=1, value=20)
@@ -344,6 +358,7 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
             height, 
             width,
             seed_param,
+            last_image,
         ],
         outputs = [video_output, seed_output]
     )
@@ -359,6 +374,7 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
             height_5b, 
             width_5b,
             seed_param_5b,
+            last_image_5b,
         ],
         outputs = [video_output_5b, seed_output_5b]
     )
