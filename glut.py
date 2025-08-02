@@ -275,6 +275,8 @@ def generate_5b(
             if args.afba>0:
                 pipe.transformer.enable_cache(FirstBlockCacheConfig(threshold=args.afba))
                 print("开启第一块缓存")
+            #image_processor = ModularPipeline.from_pretrained("models/WanImageProcessor", trust_remote_code=True)
+        #image = image_processor(image=image_input, max_area=width*height, output="processed_image")
         image = load_image(image_input)
         image = image.resize((width, height))
         if last_image is not None:
@@ -320,7 +322,7 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
                 prompt = gr.Textbox(label="提示词（不超过200字）", value="Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.")
                 negative_prompt = gr.Textbox(label="负面提示词", value="")
                 steps = gr.Slider(label="采样步数", minimum=1, maximum=100, step=1, value=12)
-                nf = gr.Slider(label="生成时长（秒），默认帧率16", minimum=3, maximum=10, step=1, value=5)
+                nf = gr.Slider(label="生成时长（秒），默认帧率16", minimum=0, maximum=10, step=1, value=5)
                 height = gr.Slider(label="高度", minimum=256, maximum=2560, step=32, value=480)
                 width = gr.Slider(label="宽度", minimum=256, maximum=2560, step=32, value=832)
                 seed_param = gr.Number(label="种子，请输入正整数，-1为随机", value=-1)
@@ -336,8 +338,8 @@ with gr.Blocks(theme=gr.themes.Base()) as demo:
                     last_image_5b = gr.Image(label="首尾帧中的尾帧", type="filepath", height=400)
                 prompt_5b = gr.Textbox(label="提示词（不超过200字）", value="Two anthropomorphic cats in comfy boxing gear and bright gloves fight intensely on a spotlighted stage.")
                 negative_prompt_5b = gr.Textbox(label="负面提示词", value="")
-                steps_5b = gr.Slider(label="采样步数", minimum=1, maximum=100, step=1, value=20)
-                nf_5b = gr.Slider(label="生成时长（秒），默认帧率24", minimum=3, maximum=10, step=1, value=5)
+                steps_5b = gr.Slider(label="采样步数", minimum=1, maximum=100, step=1, value=40)
+                nf_5b = gr.Slider(label="生成时长（秒），默认帧率24", minimum=0, maximum=10, step=1, value=5)
                 height_5b = gr.Slider(label="高度", minimum=256, maximum=2560, step=32, value=704)
                 width_5b = gr.Slider(label="宽度", minimum=256, maximum=2560, step=32, value=1280)
                 seed_param_5b = gr.Number(label="种子，请输入正整数，-1为随机", value=-1)
